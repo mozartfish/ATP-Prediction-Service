@@ -32,25 +32,71 @@ print(
 )
 
 # %% [markdown]
-# ## Exploratory Data Analysis
+# ## Preprocess Data
 #
 
 # %%
+# Convert to datetime objects
+df["Date"] = pd.to_datetime(df["Date"])
+
+# sort from most recent matches to earliest matches
+df = df.sort_values(by="Date").reset_index(drop=True)
+
+# # Sort by date to ensure historical features are computed correctly later
+# df = df.sort_values("Date")
+
+# %%
 df.head()
+
+# %% [markdown]
+# ## Create Datasets
+#
+
+# %%
+season_2025_start = pd.Timestamp("2024-12-27")
+season_2025_end = pd.Timestamp("2025-11-16")
+
+# %% [markdown]
+# ### Training Data
+#
+
+# %%
+train_df = df[df["Date"] < season_2025_start].reset_index(drop=True)
+print(f"Training matches (2000-2024) -> {len(train_df)}")
+
+# %%
+train_df.head()
+
+# %% [markdown]
+# ### Testing Data
+#
+
+# %%
+test_df = df[
+    (df["Date"] >= season_2025_start) & (df["Date"] <= season_2025_end)
+].reset_index(drop=True)
+print(f"Testing matches - 2025 season -> {len(test_df)}")
+
+# %%
+test_df.head()
+
+# %% [markdown]
+# ## Exploratory Data Analysis
+#
 
 # %% [markdown]
 # ### Column Types
 #
 
 # %%
-df.info()
+train_df.info()
 
 # %% [markdown]
 # ### Min-Max Values - Numerical Feature Columns
 #
 
 # %%
-numeric_min_max = df.select_dtypes(include=[np.number]).agg(["min", "max"])
+numeric_min_max = train_df.select_dtypes(include=[np.number]).agg(["min", "max"])
 print(numeric_min_max)
 
 # %% [markdown]
@@ -59,8 +105,8 @@ print(numeric_min_max)
 
 # %%
 # For each column, show unique values
-for col in df.columns:
-    unique_vals = df[col].unique()
+for col in train_df.columns:
+    unique_vals = train_df[col].unique()
     n_unique = len(unique_vals)
     print(f"\n{col} -> {n_unique} unique values")
 
@@ -76,7 +122,7 @@ for col in df.columns:
 #
 
 # %%
-total_unique_players = pd.concat([df["Player_1"], df["Player_2"]]).nunique()
+total_unique_players = pd.concat([df["Player_1"], train_df["Player_2"]]).nunique()
 print(f"Total unique players in the dataset -> {total_unique_players}")
 
 # %% [markdown]
@@ -100,7 +146,7 @@ def match_stats(df):
 
 
 # %%
-match_stats(df)
+match_stats(train_df)
 
 # %% [markdown]
 # ### Series Stats
@@ -154,7 +200,7 @@ def series_stats(df):
 
 
 # %%
-series_stats(df)
+series_stats(train_df)
 
 # %% [markdown]
 # ### Court Stats
@@ -210,7 +256,7 @@ def court_stats(df):
 
 
 # %%
-court_stats(df)
+court_stats(train_df)
 
 # %% [markdown]
 # ### Surface Stats
@@ -268,7 +314,7 @@ def surface_stats(df):
 
 
 # %%
-surface_stats(df)
+surface_stats(train_df)
 
 # %% [markdown]
 # ### Round Stats
@@ -325,7 +371,7 @@ def round_stats(df):
 
 
 # %%
-round_stats(df)
+round_stats(train_df)
 
 # %% [markdown]
 # ### Best of Stats
@@ -381,7 +427,7 @@ def best_of_stats(df):
 
 
 # %%
-best_of_stats(df)
+best_of_stats(train_df)
 
 # %% [markdown]
 # ## Data Preprocessing
@@ -478,7 +524,7 @@ def preprocess_data(df):
 
 
 # %%
-player_stats = preprocess_data(df)
+player_stats = preprocess_data(train_df)
 
 # %%
 player_stats.info()
@@ -487,7 +533,13 @@ player_stats.info()
 player_stats.head()
 
 # %%
-result = preprocess_data(df)
-print(result[result["Player_Name"] == "Nadal R."])
+result = preprocess_data(train_df)
+
+# %%
+print(result[result["Player_Name"] == "Alcaraz C."])
+
+# %%
+print(result[result["Player_Name"] == "Sinner J."])
+
 
 # %%
