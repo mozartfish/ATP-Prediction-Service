@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
+import datetime 
 
 
 def preprocess_player_stats(df):
@@ -464,10 +465,10 @@ def create_symmetric_dataset(df):
 def final_train_data(df):
     final_train_data = df.copy()
     drop_cols = [
-        "Date",  #
+        # "Date",
         "Tournament",
-        "Player_1",
-        "Player_2",
+        # "Player_1",
+        # "Player_2",
         "Winner",
         "Surface",
         "Series",
@@ -526,6 +527,11 @@ def final_train_data(df):
 
     cols_to_drop = [col for col in drop_cols if col in final_train_data.columns]
     df_clean = final_train_data.drop(cols_to_drop, axis=1)
+
+    df_clean = df_clean.fillna(0)
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    df['timestamp'] = pd.to_datetime(today)
+
     print(f"Before: {len(df.columns)} columns")
     print(f"After: {len(df_clean.columns)} columns")
 
