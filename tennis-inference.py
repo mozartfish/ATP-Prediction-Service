@@ -125,16 +125,12 @@ print(f"Player 1 wins predicted: {predictions.sum()} ({predictions.mean():.1%})"
 
 
 # %%
-# Create results dataframe with original match info
-results = df_new[
-    ["date", "player_1", "player_2", "tournament", "surface", "round"]
-].copy()
+results = df_new[["date", "player_1", "player_2"]].copy()
 
 # Add predictions
 results["predicted_player_1_wins"] = predictions
 results["player_1_win_probability"] = prob_player1_wins
 
-# Determine predicted winner
 results["predicted_winner"] = results.apply(
     lambda row: row["player_1"]
     if row["predicted_player_1_wins"] == 1
@@ -142,22 +138,23 @@ results["predicted_winner"] = results.apply(
     axis=1,
 )
 
-# Calculate confidence (distance from 50%)
-results["confidence"] = prob_player1_wins.apply(lambda x: x if x > 0.5 else 1 - x)
+results["confidence"] = [x if x > 0.5 else 1 - x for x in prob_player1_wins]
 
+# Validation
 if "player_1_won" in df_new.columns:
-    results["actual_player_1_won"] = df_new["player_1_won"].values
     results["actual_winner"] = df_new.apply(
         lambda row: row["player_1"] if row["player_1_won"] == 1 else row["player_2"],
         axis=1,
     )
     results["correct"] = results["predicted_winner"] == results["actual_winner"]
 
-    # Calculate accuracy!
     accuracy = results["correct"].mean()
-    print(f"Validation Accuracy -> {accuracy:.2%}")
+    print(f"Validation Accuracy: {accuracy:.2%}")
 
 results.head(20)
 
+# %%
+results.to_csv("tennis_predictions.csv", index=False, sep=";")
+print(f"Saved {len(results)} predictions to tennis_predictions.csv")
 
 # %%
