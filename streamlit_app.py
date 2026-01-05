@@ -729,6 +729,143 @@ with tab4:
         else:
             st.info("ℹ️ Showing predictions (actual results not yet available)")
         
+        # ===== NEW SECTION: Latest 10 Matches with Bets =====
+        st.markdown("### 🎯 Latest 10 Matches - Betting Recommendations")
+        st.markdown("*Most recent predictions with betting odds and recommended bets*")
+        
+        # Get latest 10 matches
+        latest_df = predictions_df.copy()
+        if 'date' in latest_df.columns:
+            latest_df['date'] = pd.to_datetime(latest_df['date'])
+            latest_df = latest_df.sort_values('date', ascending=False)
+        
+        # Deduplicate (each match appears twice in dataset)
+        latest_df_unique = latest_df.drop_duplicates(subset=['date', 'player_1', 'player_2'], keep='first')
+        latest_10 = latest_df_unique.head(10)
+        
+        # Display each match in a card format
+        for idx, match in latest_10.iterrows():
+            # Determine confidence level and color
+            confidence = match.get('confidence', match.get('player_1_win_probability', 0.5))
+            if isinstance(confidence, str):
+                confidence = float(confidence.strip('%')) / 100 if '%' in confidence else float(confidence)
+            
+            if confidence > 0.65:
+                confidence_color = "🟢"
+                confidence_label = "HIGH"
+                bet_recommendation = "✅ Recommended"
+            elif confidence > 0.55:
+                confidence_color = "🟡"
+                confidence_label = "MEDIUM"
+                bet_recommendation = "⚠️ Cautious"
+            else:
+                confidence_color = "🔴"
+                confidence_label = "LOW"
+                bet_recommendation = "❌ Skip"
+            
+            # Create expandable card for each match
+            date_str = match['date'].strftime('%Y-%m-%d') if 'date' in match and hasattr(match['date'], 'strftime') else 'N/A'
+            player1 = match.get('player_1', 'Player 1')
+            player2 = match.get('player_2', 'Player 2')
+            predicted_winner = match.get('predicted_winner', player1)
+            
+            with st.expander(f"{confidence_color} **{date_str}** | {player1} vs {player2} → **{predicted_winner}** ({confidence:.1%})", expanded=False):
+                col1, col2, col3 = st.columns([2, 2, 1])
+                
+                with col1:
+                    st.markdown("#### Match Details")
+                    st.markdown(f"**🎾 Player 1:** {player1}")
+                    st.markdown(f"**🎾 Player 2:** {player2}")
+                    st.markdown(f"**🏆 Predicted Winner:** {predicted_winner}")
+                    
+                    # Show actual result if available
+                    if 'actual_winner' in match and pd.notna(match['actual_winner']):
+                        actual = match['actual_winner']
+                        is_correct = match.get('correct', False)
+                        result_emoji = "✅" if is_correct else "❌"
+                        st.markdown(f"**📊 Actual Winner:** {actual} {result_emoji}")
+                
+                with col2:
+                    st.markdown("#### Betting Odds & Prediction")
+                    
+                    # Get odds
+                    odd_1 = match.get('odd_1', 'N/A')
+                    odd_2 = match.get('odd_2', 'N/A')
+                    
+                    st.markdown(f"**💰 {player1} Odds:** {odd_1}")
+                    st.markdown(f"**💰 {player2} Odds:** {odd_2}")
+                    st.markdown(f"**🎯 Confidence:** {confidence:.1%} ({confidence_label})")
+                    
+                    # Calculate expected value if we have odds
+                    if odd_1 != 'N/A' and odd_2 != 'N/A':
+                        try:
+                            if predicted_winner == player1:
+                                bet_odd = float(odd_1)
+                                win_prob = confidence
+                            else:
+                                bet_odd = float(odd_2)
+                                win_prob = confidence
+                            
+                            # Expected Value = (Probability of Win × Profit) - (Probability of Loss × Stake)
+                            expected_value = (win_prob * (bet_odd - 1)) - ((1 - win_prob) * 1)
+                            ev_pct = expected_value * 100
+                            
+                            if ev_pct > 10:
+                                ev_color = "🟢"
+                                ev_label = "Strong Value"
+                            elif ev_pct > 0:
+                                ev_color = "🟡"
+                                ev_label = "Slight Edge"
+                            else:
+                                ev_color = "🔴"
+                                ev_label = "No Value"
+                            
+                            st.markdown(f"**📈 Expected Value:** {ev_color} {ev_pct:+.1f}% ({ev_label})")
+                        except:
+                            pass
+                
+                with col3:
+                    st.markdown("#### Recommendation")
+                    st.markdown(f"**{bet_recommendation}**")
+                    
+                    # Suggested bet size (Kelly Criterion simplified)
+                    if confidence > 0.6 and odd_1 != 'N/A' and odd_2 != 'N/A':
+                        try:
+                            if predicted_winner == player1:
+                                bet_odd = float(odd_1)
+                            else:
+                                bet_odd = float(odd_2)
+                            
+                            # Simplified Kelly: (edge) / (odds - 1)
+                            edge = (confidence * bet_odd) - 1
+                            kelly_pct = edge / (bet_odd - 1) if bet_odd > 1 else 0
+                            
+                            # Use fractional Kelly (25%) for safety
+                            fractional_kelly = kelly_pct * 0.25
+                            
+                            # Cap at 10% bankroll
+                            suggested_pct = min(fractional_kelly * 100, 10.0)
+                            suggested_pct = max(suggested_pct, 0)  # No negative bets
+                            
+                            if suggested_pct > 0:
+                                st.markdown(f"**💵 Suggested Bet:**")
+                                st.markdown(f"{suggested_pct:.1f}% of bankroll")
+                                st.markdown(f"(${suggested_pct:.2f} on $100)")
+                            else:
+                                st.markdown("**Skip this bet**")
+                        except:
+                            st.markdown("*Odds analysis unavailable*")
+                    else:
+                        st.markdown("**Skip** - Low confidence")
+                    
+                    # Show actual profit if available
+                    if 'bet_profit' in match and pd.notna(match['bet_profit']):
+                        profit = match['bet_profit']
+                        profit_emoji = "💰" if profit > 0 else "📉"
+                        st.markdown(f"{profit_emoji} **P/L:** ${profit:+.2f}")
+        
+        st.markdown("---")
+        
         st.markdown("### Today's Predictions")
         
         # Prepare display dataframe
